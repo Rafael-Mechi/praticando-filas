@@ -1,12 +1,13 @@
 package main
 
 /*
-O import eh uma palavra-chave do Go, tipo Class.
+O import eh uma palavra-chave do Go, tipo Class no java.
 Coloque quantos imports vc precisar.
 O de baixo, temos o alias seguido do link de onde vem esse import.
 */
 import (
 	"log"
+	"os"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -18,7 +19,12 @@ func failOnError(err error, msg string) {
 }
 
 func main() {
-	conn, err := amqp.Dial("amqp://admin:admin@localhost:5672/")
+	rabbitmqURL := getEnv("RABBITMQ_URL", "amqp://admin:admin@localhost:5672/")
+	queueName := getEnv("QUEUE_NAME", "praticando_fila")
+	exchangeName := getEnv("EXCHANGE_NAME", "exchange_praticando_fila")
+	routingKey := getEnv("ROUTING_KEY", "praticando_fila.key")
+
+	conn, err := amqp.Dial(rabbitmqURL)
 	if err != nil {
 		log.Fatalf("Falha ao conectar com RabbitMQ: %s", err)
 	}
@@ -35,13 +41,27 @@ func main() {
 
 	defer ch.Close()
 
+	err = ch.ExchangeDeclare(
+		exchangeName, // nome
+		"direct",     // tipo
+		true,         // durable
+		false,        // auto-delete
+		false,        // internal
+		false,        // no-wait
+		nil,          // args
+	)
+	if err != nil {
+		log.Fatalf("Falha ao declarar exchange: %s", err)
+	}
+	log.Printf("Exchange '%s' declarado com sucesso!", exchangeName)
+
 	q, err := ch.QueueDeclare(
-		"praticando_fila", // nome da fila
-		true,              // durable
-		false,             // auto-delete
-		false,             // exclusive
-		false,             // no-wait
-		nil,               // args extras
+		queueName, // nome da fila
+		true,      // durable
+		false,     // auto-delete
+		false,     // exclusive
+		false,     // no-wait
+		nil,       // args extras
 	)
 
 	if err != nil {
@@ -49,6 +69,18 @@ func main() {
 	}
 
 	log.Printf("Fila '%s' declarada com sucesso!", q.Name)
+
+	err = ch.QueueBind(
+		q.Name,       // queue name
+		routingKey,   // routing key
+		exchangeName, // exchange
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Fatalf("Falha ao criar binding: %s", err)
+	}
+	log.Printf("Binding criado: exchange '%s' -> fila '%s' (key: '%s')", exchangeName, q.Name, routingKey)
 
 	msgs, err := ch.Consume(
 		q.Name, // queue
@@ -73,4 +105,11 @@ func main() {
 	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
 
 	<-forever
+}
+
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }

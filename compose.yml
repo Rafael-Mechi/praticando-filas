@@ -3,7 +3,7 @@ services:
     image: rabbitmq:4-management
     container_name: rabbitmq
     ports:
-      - "5672:5672"   # Comunicação AMQP com o Spring
+      - "5672:5672"   # Comunicação AMQP
       - "15672:15672" # Painel administrativo
     environment:
       RABBITMQ_DEFAULT_USER: admin
@@ -15,6 +15,49 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - rabbitmq_network
+
+  listener:
+    build:
+      context: ./go-rabbitmq-listener
+      dockerfile: Dockerfile
+    container_name: listener
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://admin:admin@rabbitmq:5672/
+      QUEUE_NAME: praticando_fila
+      EXCHANGE_NAME: exchange_praticando_fila
+      ROUTING_KEY: praticando_fila.key
+    networks:
+      - rabbitmq_network
+    restart: unless-stopped
+
+  producer:
+    build:
+      context: ./python-rabitmq-producer
+      dockerfile: Dockerfile
+    container_name: producer
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: admin
+      RABBITMQ_PASS: admin
+      QUEUE_NAME: praticando_fila
+      EXCHANGE_NAME: exchange_praticando_fila
+      ROUTING_KEY: praticando_fila.key
+    networks:
+      - rabbitmq_network
+    restart: "no"
+
+networks:
+  rabbitmq_network:
+    driver: bridge
 
 volumes:
   rabbitmq_data:
