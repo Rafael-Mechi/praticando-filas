@@ -53,6 +53,13 @@ O painel administrativo estará disponível em: http://localhost:15672
 - Usuário: `admin`
 - Senha: `admin`
 
+**Importante:** Antes de rodar os serviços, você precisará criar os seguintes recursos no RabbitMQ através do painel administrativo:
+- Uma fila com o nome: `praticando_fila`
+- Um exchange com o nome: `exchange_praticando_fila`
+- Uma routing key com o nome: `praticando_fila.key`
+
+Certifique-se de configurar o binding entre o exchange e a fila usando a routing key especificada.
+
 ### 2. Rodar o Listener (Go)
 
 Navegue até a pasta do listener e execute:
